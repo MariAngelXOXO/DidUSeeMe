@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Did U See Me? - Cadastrar Criança</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>Did U See Me?</h1>
+    <p>Área de Cadastro Oficial / Autorizada</p>
+  </header>
+
+  <main class="container">
+    <div class="form-card">
+      <h2>Catalogar Caso de Desaparecimento</h2>
+      <form id="child-form">
+        <label for="nome">Nome da Criança:</label>
+        <input type="text" id="nome" name="nome" required>
+
+        <div class="row">
+          <div>
+            <label for="idade_atual">Idade Atual:</label>
+            <input type="number" id="idade_atual" name="idade_atual" min="0" max="120" step="1" required>
+          </div>
+          <div>
+            <label for="idade_desaparecimento">Idade na Época do Desaparecimento:</label>
+            <input type="number" id="idade_desaparecimento" name="idade_desaparecimento" min="0" max="120" step="1" required>
+          </div>
+        </div>
+
+        <div class="row">
+          <div>
+            <label>Cor de Pele:</label>
+            <input type="text" id="cor_pele" name="cor_pele">
+          </div>
+          <div>
+            <label>Cabelo (Cor e Comprimento):</label>
+            <input type="text" id="cabelo" name="cabelo">
+          </div>
+          <div>
+            <label>Cor dos Olhos:</label>
+            <input type="text" id="olhos" name="olhos">
+          </div>
+        </div>
+
+        <div class="row">
+          <div>
+            <label>Altura:</label>
+            <input type="text" id="altura" name="altura">
+          </div>
+          <div>
+            <label for="data_desaparecimento">Data do Desaparecimento:</label>
+            <input type="date" id="data_desaparecimento" name="data_desaparecimento" required>
+          </div>
+        </div>
+
+        <label>Roupas que usava no dia:</label>
+        <input type="text" id="roupas_desaparecimento" name="roupas_desaparecimento">
+
+        <label>Características Marcantes (Cicatrizes, marcas de nascença, deficiências):</label>
+        <textarea id="caracteristicas_marcantes" name="caracteristicas_marcantes"></textarea>
+
+        <label>Familiares Próximos (Pais, avós, tios):</label>
+        <input type="text" id="familiares_proximos" name="familiares_proximos">
+
+        <label>Local do Desaparecimento (Cidade e Estado):</label>
+        <input type="text" id="local_desaparecimento" name="local_desaparecimento" required>
+
+        <label>Último Local Vista (Raio de 100m / Informações do avistamento):</label>
+        <textarea id="ultimo_local_visto" name="ultimo_local_visto"></textarea>
+
+        <label>Locais onde testemunhas a viram após o desaparecimento:</label>
+        <textarea id="locais_testemunhas" name="locais_testemunhas"></textarea>
+
+        <label>Informações Adicionais (Suspeitos, itens que levava, contexto):</label>
+        <textarea id="informacoes_adicionais" name="informacoes_adicionais"></textarea>
+
+        <button type="submit" class="btn" style="margin-top: 20px; width: 100%;">Publicar Caso</button>
+      </form>
+      <p style="text-align: center; margin-top: 15px;"><a href="index.html">Voltar à Página Inicial</a></p>
+    </div>
+  </main>
+
+  <script src="form.js"></script>
+</body>
+</html>
