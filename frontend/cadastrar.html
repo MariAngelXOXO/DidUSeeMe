@@ -62,22 +62,39 @@
         <label>Características Marcantes (Cicatrizes, marcas de nascença, deficiências):</label>
         <textarea id="caracteristicas_marcantes" name="caracteristicas_marcantes"></textarea>
 
-        <label>Familiares Próximos (Pais, avós, tios):</label>
+        <label>Familiares Próximos (informação interna para revisão):</label>
         <input type="text" id="familiares_proximos" name="familiares_proximos">
 
         <label>Local do Desaparecimento (Cidade e Estado):</label>
-        <input type="text" id="local_desaparecimento" name="local_desaparecimento" required>
+        <input type="text" id="local_desaparecimento" name="local_desaparecimento" placeholder="Ex.: Campinas - SP" maxlength="100" required>
 
-        <label>Último Local Vista (Raio de 100m / Informações do avistamento):</label>
+        <label>Último local visto (informação interna para revisão; não informe endereço residencial):</label>
         <textarea id="ultimo_local_visto" name="ultimo_local_visto"></textarea>
 
-        <label>Locais onde testemunhas a viram após o desaparecimento:</label>
+        <label>Informações de testemunhas (internas para revisão; não inclua nomes ou contatos):</label>
         <textarea id="locais_testemunhas" name="locais_testemunhas"></textarea>
 
-        <label>Informações Adicionais (Suspeitos, itens que levava, contexto):</label>
+        <label>Informações adicionais (internas para revisão; não inclua dados pessoais ou acusações não verificadas):</label>
         <textarea id="informacoes_adicionais" name="informacoes_adicionais"></textarea>
 
-        <button type="submit" class="btn" style="margin-top: 20px; width: 100%;">Publicar Caso</button>
+        <label for="fonte_tipo">Tipo da fonte:</label>
+        <select id="fonte_tipo" name="fonte_tipo" required>
+          <option value="">Selecione</option>
+          <option value="oficial">Fonte oficial</option>
+          <option value="autorizada">Fonte autorizada pela família ou responsável</option>
+        </select>
+
+        <label for="fonte_referencia">Referência da fonte (URL ou identificação do documento):</label>
+        <input type="text" id="fonte_referencia" name="fonte_referencia" maxlength="500" required>
+
+        <label class="consent-label">
+          <input type="checkbox" id="dados_autorizados" name="dados_autorizados" required>
+          Confirmo que a fonte é legítima e que os dados informados estão autorizados para divulgação pública.
+        </label>
+
+        <p>Casos novos passam por revisão antes da publicação. Não informe endereços residenciais, dados de contato, nomes de testemunhas ou informações que possam colocar a criança ou familiares em risco.</p>
+
+        <button type="submit" class="btn" style="margin-top: 20px; width: 100%;">Enviar para revisão</button>
       </form>
       <p style="text-align: center; margin-top: 15px;"><a href="index.html">Voltar à Página Inicial</a></p>
     </div>

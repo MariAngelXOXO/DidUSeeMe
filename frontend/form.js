@@ -66,6 +66,9 @@ form.addEventListener('submit', async (e) => {
     ultimo_local_visto: document.getElementById('ultimo_local_visto').value,
     locais_testemunhas: document.getElementById('locais_testemunhas').value,
     informacoes_adicionais: document.getElementById('informacoes_adicionais').value,
+    fonte_tipo: document.getElementById('fonte_tipo').value,
+    fonte_referencia: document.getElementById('fonte_referencia').value.trim(),
+    dados_autorizados: document.getElementById('dados_autorizados').checked,
   };
 
   try {
@@ -92,7 +95,7 @@ form.addEventListener('submit', async (e) => {
       return;
     }
 
-    alert('Caso catalogado com sucesso!');
+    alert(data.mensagem || 'Caso enviado para revisão.');
     window.location.href = 'index.html';
   } catch (error) {
     console.error('Erro ao enviar:', error);

@@ -104,13 +104,24 @@ header p {
   box-shadow: 0 2px 6px rgba(0,0,0,0.1);
 }
 
-input, textarea {
+input, textarea, select {
   width: 100%;
   padding: 8px;
   margin: 8px 0 15px 0;
   border: 1px solid #ccc;
   border-radius: 4px;
   box-sizing: border-box;
+}
+
+.consent-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.consent-label input {
+  width: auto;
+  margin: 3px 0 0;
 }
 
 textarea {

@@ -18,6 +18,16 @@ function verificarToken(req, res, next) {
   });
 }
 
+function autorizarPerfis(...perfisPermitidos) {
+  return (req, res, next) => {
+    if (!req.user || !perfisPermitidos.includes(req.user.perfil)) {
+      return res.status(403).json({ erro: 'Você não tem permissão para realizar esta ação.' });
+    }
+
+    next();
+  };
+}
+
 function validarDadosCrianca(req, res, next) {
   const dados = req.body;
   if (!dados || typeof dados !== 'object' || Array.isArray(dados)) {
@@ -29,6 +39,27 @@ function validarDadosCrianca(req, res, next) {
       return res.status(400).json({ erro: 'Informe o nome e o local do desaparecimento.' });
     }
     dados[campo] = dados[campo].trim();
+  }
+
+  if (!/^[\p{L}\p{M} .'-]{2,80}\s*[-,]\s*[A-Za-z]{2}$/u.test(dados.local_desaparecimento)
+    || /\b(?:rua|avenida|av\.?|travessa|rodovia|estrada|alameda|cep)\b/i.test(dados.local_desaparecimento)) {
+    return res.status(400).json({
+      erro: 'Informe somente cidade e UF no local do desaparecimento, sem endereço ou número.'
+    });
+  }
+
+  if (!['oficial', 'autorizada'].includes(dados.fonte_tipo)) {
+    return res.status(400).json({ erro: 'Informe se a fonte é oficial ou autorizada.' });
+  }
+  if (typeof dados.fonte_referencia !== 'string' || dados.fonte_referencia.trim() === '') {
+    return res.status(400).json({ erro: 'Informe a referência da fonte utilizada.' });
+  }
+  dados.fonte_referencia = dados.fonte_referencia.trim();
+  if (dados.fonte_referencia.length > 500) {
+    return res.status(400).json({ erro: 'A referência da fonte deve ter no máximo 500 caracteres.' });
+  }
+  if (dados.dados_autorizados !== true) {
+    return res.status(400).json({ erro: 'Confirme que os dados podem ser divulgados com autorização.' });
   }
 
   for (const campo of ['idade_atual', 'idade_desaparecimento']) {
@@ -87,7 +118,36 @@ function validarDadosCrianca(req, res, next) {
   next();
 }
 
+function validarIdCrianca(req, res, next) {
+  const id = Number(req.params.id);
+  if (!/^[1-9]\d*$/.test(req.params.id) || !Number.isSafeInteger(id)) {
+    return res.status(400).json({ erro: 'Informe um ID de caso válido.' });
+  }
+
+  next();
+}
+
+function validarFonteCaso(req, res, next) {
+  const { fonte_tipo, fonte_referencia, dados_autorizados } = req.body || {};
+  if (!['oficial', 'autorizada'].includes(fonte_tipo)) {
+    return res.status(400).json({ erro: 'Informe se a fonte é oficial ou autorizada.' });
+  }
+  if (typeof fonte_referencia !== 'string' || fonte_referencia.trim() === ''
+    || fonte_referencia.trim().length > 500) {
+    return res.status(400).json({ erro: 'Informe uma referência válida de até 500 caracteres.' });
+  }
+  if (dados_autorizados !== true) {
+    return res.status(400).json({ erro: 'Confirme que os dados estão autorizados para divulgação.' });
+  }
+
+  req.body.fonte_referencia = fonte_referencia.trim();
+  next();
+}
+
 module.exports = {
   verificarToken,
-  validarDadosCrianca
+  autorizarPerfis,
+  validarDadosCrianca,
+  validarIdCrianca,
+  validarFonteCaso
 };
