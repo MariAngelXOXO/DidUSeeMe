@@ -1,7 +1,6 @@
 const db = require('../database/database');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-require('dotenv').config();
 
 // 1. REGISTRAR USUÁRIO
 exports.registrarUsuario = async (req, res) => {

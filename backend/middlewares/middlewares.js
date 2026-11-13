@@ -1,6 +1,5 @@
 const jwt = require('jsonwebtoken');
 const db = require('../database/database');
-require('dotenv').config();
 
 async function verificarToken(req, res, next) {
   const authHeader = req.headers.authorization || '';
