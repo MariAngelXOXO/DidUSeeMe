@@ -23,10 +23,13 @@ Mais informação, mais conscientização e mais possibilidades de ajudar, junto
 
 ## Configuração do banco de dados
 
-1. Abra `backend/database/schema.sql` no MySQL Workbench e execute o script completo.
-2. O script seleciona o banco `diduseeme_db`, cria as tabelas necessárias e insere os perfis `admin`, `moderador`, `aprovador`, `publicador` e `usuario`.
-3. Configure as variáveis de conexão do MySQL e `JWT_SECRET` no ambiente do backend antes de iniciar o servidor.
-4. Cadastre usuários pela rota `/api/auth/registrar`; novos usuários recebem o perfil `usuario`.
+1. Copie `backend/.env.example` para `backend/.env` e preencha as configurações locais do MySQL.
+2. Gere um segredo JWT aleatório com `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` e use o resultado em `JWT_SECRET`. Não reutilize o valor de exemplo.
+3. Abra `backend/database/schema.sql` no MySQL Workbench e execute o script completo. Ele seleciona o banco `diduseeme_db`, cria as tabelas necessárias e insere os perfis `admin`, `moderador`, `aprovador`, `publicador` e `usuario`.
+4. Inicie o backend a partir da pasta `backend` com `npm start`.
+5. Cadastre usuários pela rota `/api/auth/registrar`; novos usuários recebem o perfil `usuario`.
+
+O arquivo `backend/.env` contém configurações locais e não deve ser enviado ao Git. A conexão não usa mais usuário ou senha padrão: `DB_HOST`, `DB_USER`, `DB_PASSWORD` e `DB_NAME` devem estar definidos. A senha pode ficar vazia se o MySQL local estiver configurado assim. `JWT_SECRET` precisa ter pelo menos 32 caracteres.
 
 O script pode ser executado novamente sem apagar os dados. `CREATE TABLE IF NOT EXISTS` não recria nem corrige automaticamente tabelas já existentes; o script inclui migrações para `perfil_id` e `ativo` em `usuarios`, e para status, fonte, autorização, verificação da fonte e `usuario_id` em `criancas_desaparecidas`. Casos antigos são enviados para revisão, não publicados automaticamente; os que não têm dono permanecem sem vínculo e não são apagados. Não use `DROP DATABASE` para corrigir erros sem antes fazer backup.
 
@@ -68,3 +71,7 @@ Novos casos são criados com status `pending_review` e não aparecem na listagem
 - As transições são registradas em `historico_status_casos`; ações fora de ordem retornam HTTP `409`.
 
 Todas as rotas protegidas exigem o token JWT como Bearer. Os campos sobre familiares, testemunhas, último local e informações adicionais ficam restritos à fila de revisão e não são retornados na listagem pública. Mesmo na revisão, não registre endereços residenciais, contatos ou acusações não verificadas. O formulário e a API exigem confirmação de autorização, mas a fonte ainda deve ser conferida por uma pessoa moderadora: uma declaração do usuário não comprova sua legitimidade por si só. Qualquer edição do caso invalida a verificação anterior da fonte e exige nova revisão.
+
+## Testes integrados
+
+Os testes em `backend/tests` usam MySQL e criam um banco temporário com nome exclusivo; ao final, removem somente esse banco de teste. Configure `backend/.env` com uma conta MySQL autorizada a criar e remover bancos e execute `npm test` dentro de `backend`. Os testes cobrem cadastro e login, permissões por perfil, criação/edição/leitura/exclusão e o fluxo de revisão até a publicação.
