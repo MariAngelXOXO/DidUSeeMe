@@ -115,12 +115,18 @@ CREATE TABLE IF NOT EXISTS criancas_desaparecidas (
     fonte_tipo VARCHAR(20) NOT NULL,
     fonte_referencia VARCHAR(500) NOT NULL,
     dados_autorizados TINYINT(1) NOT NULL DEFAULT 0,
+    fonte_verificada_por INT NULL,
+    fonte_verificada_em DATETIME NULL,
     criado_em TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     atualizado_em TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT fk_criancas_usuario
         FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
         ON UPDATE CASCADE
         ON DELETE CASCADE,
+    CONSTRAINT fk_criancas_fonte_verificada
+        FOREIGN KEY (fonte_verificada_por) REFERENCES usuarios(id)
+        ON UPDATE CASCADE
+        ON DELETE SET NULL,
     INDEX idx_criancas_data (criado_em),
     INDEX idx_criancas_usuario (usuario_id),
     INDEX idx_criancas_status (status)
@@ -181,6 +187,53 @@ SET @dados_autorizados_existe = (
 SET @sql_migracao = IF(
     @dados_autorizados_existe = 0,
     'ALTER TABLE criancas_desaparecidas ADD COLUMN dados_autorizados TINYINT(1) NOT NULL DEFAULT 0',
+    'SELECT 1'
+);
+PREPARE stmt_migracao FROM @sql_migracao;
+EXECUTE stmt_migracao;
+DEALLOCATE PREPARE stmt_migracao;
+
+SET @fonte_verificada_por_existe = (
+    SELECT COUNT(*) FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'criancas_desaparecidas'
+      AND COLUMN_NAME = 'fonte_verificada_por'
+);
+SET @sql_migracao = IF(
+    @fonte_verificada_por_existe = 0,
+    'ALTER TABLE criancas_desaparecidas ADD COLUMN fonte_verificada_por INT NULL',
+    'SELECT 1'
+);
+PREPARE stmt_migracao FROM @sql_migracao;
+EXECUTE stmt_migracao;
+DEALLOCATE PREPARE stmt_migracao;
+
+SET @fonte_verificada_em_existe = (
+    SELECT COUNT(*) FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'criancas_desaparecidas'
+      AND COLUMN_NAME = 'fonte_verificada_em'
+);
+SET @sql_migracao = IF(
+    @fonte_verificada_em_existe = 0,
+    'ALTER TABLE criancas_desaparecidas ADD COLUMN fonte_verificada_em DATETIME NULL',
+    'SELECT 1'
+);
+PREPARE stmt_migracao FROM @sql_migracao;
+EXECUTE stmt_migracao;
+DEALLOCATE PREPARE stmt_migracao;
+
+SET @fk_fonte_verificada_existe = (
+    SELECT COUNT(*) FROM information_schema.KEY_COLUMN_USAGE
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'criancas_desaparecidas'
+      AND COLUMN_NAME = 'fonte_verificada_por'
+      AND REFERENCED_TABLE_NAME = 'usuarios'
+      AND REFERENCED_COLUMN_NAME = 'id'
+);
+SET @sql_migracao = IF(
+    @fk_fonte_verificada_existe = 0,
+    'ALTER TABLE criancas_desaparecidas ADD CONSTRAINT fk_criancas_fonte_verificada FOREIGN KEY (fonte_verificada_por) REFERENCES usuarios(id) ON UPDATE CASCADE ON DELETE SET NULL',
     'SELECT 1'
 );
 PREPARE stmt_migracao FROM @sql_migracao;

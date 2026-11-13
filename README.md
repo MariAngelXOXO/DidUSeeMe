@@ -28,7 +28,7 @@ Mais informação, mais conscientização e mais possibilidades de ajudar, junto
 3. Configure as variáveis de conexão do MySQL e `JWT_SECRET` no ambiente do backend antes de iniciar o servidor.
 4. Cadastre usuários pela rota `/api/auth/registrar`; novos usuários recebem o perfil `usuario`.
 
-O script pode ser executado novamente sem apagar os dados. `CREATE TABLE IF NOT EXISTS` não recria nem corrige automaticamente tabelas já existentes; o script inclui migrações para `perfil_id` e `ativo` em `usuarios`, e para status, fonte, autorização e `usuario_id` em `criancas_desaparecidas`. Casos antigos são enviados para revisão, não publicados automaticamente; os que não têm dono permanecem sem vínculo e não são apagados. Não use `DROP DATABASE` para corrigir erros sem antes fazer backup.
+O script pode ser executado novamente sem apagar os dados. `CREATE TABLE IF NOT EXISTS` não recria nem corrige automaticamente tabelas já existentes; o script inclui migrações para `perfil_id` e `ativo` em `usuarios`, e para status, fonte, autorização, verificação da fonte e `usuario_id` em `criancas_desaparecidas`. Casos antigos são enviados para revisão, não publicados automaticamente; os que não têm dono permanecem sem vínculo e não são apagados. Não use `DROP DATABASE` para corrigir erros sem antes fazer backup.
 
 Cada usuário pode excluir os próprios casos; somente `admin` pode excluir qualquer caso. Para atribuir um perfil de equipe, altere `usuarios.perfil_id` para o ID correto em `perfis`; faça isso apenas para contas autorizadas.
 
@@ -44,6 +44,17 @@ No Postman:
 
 Uma exclusão bem-sucedida responde com HTTP `200`. Um ID inválido responde com `400`; um caso inexistente ou sem permissão para o usuário responde com `404`. O banco precisa ter a coluna `usuario_id` em `criancas_desaparecidas`, relacionada a `usuarios.id`; os novos cadastros são associados automaticamente ao usuário autenticado. Após alterar o perfil de uma conta, faça login novamente para obter um token JWT atualizado.
 
+## CRUD de casos
+
+- `POST /api/criancas`: cadastra um caso e o envia para revisão.
+- `GET /api/criancas`: lista somente casos publicados e campos próprios para exibição pública.
+- `GET /api/criancas/minhas`: lista os casos do usuário autenticado.
+- `GET /api/criancas/minhas/:id`: retorna um dos próprios casos para edição.
+- `PUT /api/criancas/:id`: atualiza o caso completo, confirma fonte/autorização novamente e devolve o caso a `pending_review`.
+- `DELETE /api/criancas/:id`: usuário exclui somente caso próprio; administrador pode excluir qualquer caso.
+
+Usuários podem editar os próprios casos pendentes ou reprovados. Moderadores podem editar casos antes da publicação; administradores também podem editar os publicados. Qualquer edição exige nova aprovação e publicação. A API confere autenticação, perfil, propriedade, status e validação dos dados; esconder botões no frontend não concede nem substitui permissões.
+
 ## Revisão, aprovação e publicação
 
 Novos casos são criados com status `pending_review` e não aparecem na listagem pública. O cadastro exige a categoria e a referência da fonte, além da confirmação de autorização para divulgar os dados.
@@ -53,7 +64,7 @@ Novos casos são criados com status `pending_review` e não aparecem na listagem
 - `aprovador` aprova casos em revisão (`POST /api/criancas/:id/aprovar`) e pode reprová-los (`POST /api/criancas/:id/reprovar`).
 - `publicador` publica casos aprovados (`POST /api/criancas/:id/publicar`); apenas então aparecem em `GET /api/criancas`.
 - `admin` pode executar todas as etapas. Os perfis de equipe podem consultar `GET /api/criancas/revisao`; a página `frontend/moderacao.html` oferece uma interface para a fila.
-- `moderador` ou `admin` pode registrar ou corrigir a fonte verificada com `PUT /api/criancas/:id/fonte`, enviando `fonte_tipo`, `fonte_referencia` e `dados_autorizados: true`. Isso permite revisar casos antigos migrados sem fonte. Se o caso já estava aprovado, a alteração o devolve para revisão.
+- `moderador` ou `admin` pode registrar ou corrigir a fonte verificada com `PUT /api/criancas/:id/fonte`, enviando `fonte_tipo`, `fonte_referencia` e `dados_autorizados: true`. A API registra quem verificou e quando; sem esse registro o caso não pode ser aprovado. Isso permite revisar casos antigos migrados sem fonte. Se o caso já estava aprovado, a alteração o devolve para revisão.
 - As transições são registradas em `historico_status_casos`; ações fora de ordem retornam HTTP `409`.
 
-Todas as rotas protegidas exigem o token JWT como Bearer. Os campos sobre familiares, testemunhas, último local e informações adicionais ficam restritos à fila de revisão e não são retornados na listagem pública. Mesmo na revisão, não registre endereços residenciais, contatos ou acusações não verificadas. O formulário e a API exigem confirmação de autorização, mas a fonte ainda deve ser conferida por uma pessoa moderadora: uma declaração do usuário não comprova sua legitimidade por si só.
+Todas as rotas protegidas exigem o token JWT como Bearer. Os campos sobre familiares, testemunhas, último local e informações adicionais ficam restritos à fila de revisão e não são retornados na listagem pública. Mesmo na revisão, não registre endereços residenciais, contatos ou acusações não verificadas. O formulário e a API exigem confirmação de autorização, mas a fonte ainda deve ser conferida por uma pessoa moderadora: uma declaração do usuário não comprova sua legitimidade por si só. Qualquer edição do caso invalida a verificação anterior da fonte e exige nova revisão.

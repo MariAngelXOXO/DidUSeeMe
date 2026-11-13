@@ -10,9 +10,9 @@
   <header>
     <h1>Did U See Me?</h1>
     <p>Mais informação, mais conscientização e mais possibilidades de ajudar. Juntos somos mais fortes.</p>
-    <div class="nav-links" id="nav-auth">
+    <nav class="nav-links" id="nav-auth" aria-label="Navegação da conta">
       <!-- Dinâmico via JS -->
-    </div>
+    </nav>
   </header>
 
   <main class="container">
@@ -20,14 +20,20 @@
       <p>🚨 Tem informações sobre alguma criança? Ligue imediatamente para a Polícia: <strong>190</strong> ou Disque 100.</p>
     </section>
 
-    <section class="list-section">
+    <section class="list-section" aria-labelledby="cases-heading">
       <div class="section-header">
-        <h2>Casos Registrados</h2>
+        <h2 id="cases-heading">Casos Registrados</h2>
         <a href="cadastrar.html" id="btn-novo-caso" class="btn hidden">Cadastrar Novo Caso</a>
       </div>
       <div id="cards-container" class="cards-grid">
         <!-- Casos carregados via JavaScript -->
       </div>
+    </section>
+
+    <section id="my-cases-section" class="list-section hidden" aria-labelledby="my-cases-heading">
+      <h2 id="my-cases-heading">Meus casos</h2>
+      <p>Casos ainda não publicados ficam visíveis somente para você e para a equipe autorizada.</p>
+      <div id="my-cases-container" class="cards-grid"></div>
     </section>
   </main>
 

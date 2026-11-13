@@ -15,6 +15,7 @@ function verificarAutenticacaoUI() {
   }
   const navAuth = document.getElementById('nav-auth');
   const btnNovoCaso = document.getElementById('btn-novo-caso');
+  const myCasesSection = document.getElementById('my-cases-section');
 
   if (token && usuario) {
     const saudacao = document.createElement('span');
@@ -42,12 +43,17 @@ function verificarAutenticacaoUI() {
     if (btnNovoCaso) {
       btnNovoCaso.classList.toggle('hidden', !['admin', 'usuario'].includes(usuario.perfil));
     }
+    if (myCasesSection) {
+      myCasesSection.classList.remove('hidden');
+      carregarMeusCasos(token);
+    }
   } else {
     const linkEntrar = document.createElement('a');
     linkEntrar.href = 'login.html';
     linkEntrar.textContent = 'Entrar / Cadastrar-se';
     navAuth.replaceChildren(linkEntrar);
     if (btnNovoCaso) btnNovoCaso.classList.add('hidden');
+    if (myCasesSection) myCasesSection.classList.add('hidden');
   }
 }
 
@@ -55,6 +61,71 @@ function logout() {
   localStorage.removeItem('token');
   localStorage.removeItem('usuario');
   window.location.reload();
+}
+
+async function carregarMeusCasos(token) {
+  const container = document.getElementById('my-cases-container');
+  try {
+    const response = await fetch(`${API_URL}/minhas`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    const casos = await response.json();
+    if (!response.ok) throw new Error(casos.erro || 'Não foi possível carregar seus casos.');
+
+    container.replaceChildren();
+    if (casos.length === 0) {
+      container.textContent = 'Você ainda não cadastrou casos.';
+      return;
+    }
+
+    casos.forEach(caso => {
+      const card = document.createElement('article');
+      card.className = 'card';
+      const titulo = document.createElement('h3');
+      titulo.textContent = caso.nome;
+      card.appendChild(titulo);
+
+      const status = document.createElement('p');
+      status.textContent = `Status: ${caso.status}`;
+      card.appendChild(status);
+
+      if (['pending_review', 'rejected'].includes(caso.status)) {
+        const editar = document.createElement('a');
+        editar.className = 'btn';
+        editar.href = `cadastrar.html?id=${encodeURIComponent(caso.id)}`;
+        editar.textContent = 'Editar e reenviar';
+        card.appendChild(editar);
+      }
+
+      const excluir = document.createElement('button');
+      excluir.type = 'button';
+      excluir.className = 'btn btn-danger';
+      excluir.textContent = 'Excluir';
+      excluir.addEventListener('click', () => excluirMeuCaso(caso.id, token));
+      card.appendChild(excluir);
+      container.appendChild(card);
+    });
+  } catch (error) {
+    console.error('Erro ao carregar seus casos:', error);
+    container.textContent = error.message || 'Não foi possível carregar seus casos.';
+  }
+}
+
+async function excluirMeuCaso(id, token) {
+  if (!window.confirm('Tem certeza que deseja excluir este caso?')) return;
+
+  try {
+    const response = await fetch(`${API_URL}/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.erro || 'Não foi possível excluir o caso.');
+    await carregarMeusCasos(token);
+  } catch (error) {
+    console.error('Erro ao excluir caso:', error);
+    window.alert(error.message || 'Erro ao excluir o caso.');
+  }
 }
 
 async function carregarCasos() {

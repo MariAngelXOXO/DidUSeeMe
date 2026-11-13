@@ -1,21 +1,45 @@
 const jwt = require('jsonwebtoken');
+const db = require('../database/database');
 require('dotenv').config();
 
-function verificarToken(req, res, next) {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
+async function verificarToken(req, res, next) {
+  const authHeader = req.headers.authorization || '';
+  const [scheme, token, ...extra] = authHeader.split(' ');
 
-  if (!token) {
+  if (scheme !== 'Bearer' || !token || extra.length > 0) {
     return res.status(401).json({ erro: 'Acesso negado. É necessário estar logado para realizar esta ação.' });
   }
 
-  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
-    if (err) {
+  let tokenUser;
+  try {
+    tokenUser = jwt.verify(token, process.env.JWT_SECRET);
+  } catch (error) {
+    if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
       return res.status(403).json({ erro: 'Token inválido ou expirado.' });
     }
-    req.user = user; // Guarda os dados do usuário decodificados na requisição
-    next();
-  });
+    console.error('Erro ao validar token:', error);
+    return res.status(500).json({ erro: 'Erro ao verificar autenticação.' });
+  }
+
+  try {
+    const [rows] = await db.execute(
+      `SELECT u.id, u.nome, u.email, u.ativo, p.nome AS perfil
+       FROM usuarios AS u
+       INNER JOIN perfis AS p ON p.id = u.perfil_id
+       WHERE u.id = ?`,
+      [tokenUser.id]
+    );
+
+    if (rows.length === 0 || !rows[0].ativo) {
+      return res.status(403).json({ erro: 'Conta inexistente ou desativada.' });
+    }
+
+    req.user = rows[0];
+    return next();
+  } catch (error) {
+    console.error('Erro ao validar usuário autenticado:', error);
+    return res.status(500).json({ erro: 'Erro ao verificar autenticação.' });
+  }
 }
 
 function autorizarPerfis(...perfisPermitidos) {
@@ -39,6 +63,10 @@ function validarDadosCrianca(req, res, next) {
       return res.status(400).json({ erro: 'Informe o nome e o local do desaparecimento.' });
     }
     dados[campo] = dados[campo].trim();
+  }
+
+  if (dados.nome.length > 150 || dados.local_desaparecimento.length > 255) {
+    return res.status(400).json({ erro: 'Nome ou local excede o limite de caracteres.' });
   }
 
   if (!/^[\p{L}\p{M} .'-]{2,80}\s*[-,]\s*[A-Za-z]{2}$/u.test(dados.local_desaparecimento)
@@ -115,7 +143,29 @@ function validarDadosCrianca(req, res, next) {
     }
   }
 
-  next();
+  const limites = {
+    cor_pele: 100,
+    cabelo: 100,
+    olhos: 100,
+    altura: 50,
+    roupas_desaparecimento: 255
+  };
+  for (const [campo, limite] of Object.entries(limites)) {
+    if (dados[campo].length > limite) {
+      return res.status(400).json({ erro: `O campo ${campo} deve ter no máximo ${limite} caracteres.` });
+    }
+  }
+
+  for (const campo of [
+    'caracteristicas_marcantes', 'familiares_proximos', 'ultimo_local_visto',
+    'locais_testemunhas', 'informacoes_adicionais'
+  ]) {
+    if (dados[campo].length > 10000) {
+      return res.status(400).json({ erro: `O campo ${campo} deve ter no máximo 10000 caracteres.` });
+    }
+  }
+
+  return next();
 }
 
 function validarIdCrianca(req, res, next) {
@@ -124,7 +174,7 @@ function validarIdCrianca(req, res, next) {
     return res.status(400).json({ erro: 'Informe um ID de caso válido.' });
   }
 
-  next();
+  return next();
 }
 
 function validarFonteCaso(req, res, next) {
@@ -141,7 +191,7 @@ function validarFonteCaso(req, res, next) {
   }
 
   req.body.fonte_referencia = fonte_referencia.trim();
-  next();
+  return next();
 }
 
 module.exports = {

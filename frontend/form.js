@@ -4,6 +4,7 @@ const form = document.getElementById('child-form');
 const idadeAtualInput = document.getElementById('idade_atual');
 const idadeDesaparecimentoInput = document.getElementById('idade_desaparecimento');
 const dataDesaparecimentoInput = document.getElementById('data_desaparecimento');
+const caseId = new URLSearchParams(window.location.search).get('id');
 
 function atualizarValidacaoIdades() {
   const idadeAtual = idadeAtualInput.value;
@@ -24,7 +25,7 @@ function obterDataLocal() {
   return `${ano}-${mes}-${dia}`;
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   const token = localStorage.getItem('token');
   if (!token) {
     alert('Você precisa estar logado para acessar esta página.');
@@ -33,7 +34,45 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   dataDesaparecimentoInput.max = obterDataLocal();
+
+  if (caseId) {
+    if (!/^[1-9]\d*$/.test(caseId)) {
+      alert('ID de caso inválido.');
+      window.location.href = 'index.html';
+      return;
+    }
+
+    await carregarCasoParaEdicao(token);
+  }
 });
+
+async function carregarCasoParaEdicao(token) {
+  try {
+    const response = await fetch(`${API_URL}/minhas/${encodeURIComponent(caseId)}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    const caso = await response.json();
+    if (!response.ok) throw new Error(caso.erro || 'Não foi possível carregar o caso.');
+
+    for (const [campo, valor] of Object.entries(caso)) {
+      const input = document.getElementById(campo);
+      if (input && input.type !== 'checkbox') {
+        input.value = input.type === 'date' && valor
+          ? String(valor).slice(0, 10)
+          : valor ?? '';
+      } else if (input?.type === 'checkbox') {
+        input.checked = Boolean(valor);
+      }
+    }
+
+    document.querySelector('.form-card h2').textContent = 'Editar caso e reenviar para revisão';
+    form.querySelector('button[type="submit"]').textContent = 'Salvar e enviar para revisão';
+  } catch (error) {
+    console.error('Erro ao carregar caso para edição:', error);
+    alert(error.message || 'Erro ao carregar o caso.');
+    window.location.href = 'index.html';
+  }
+}
 
 idadeAtualInput.addEventListener('input', atualizarValidacaoIdades);
 idadeDesaparecimentoInput.addEventListener('input', atualizarValidacaoIdades);
@@ -72,8 +111,8 @@ form.addEventListener('submit', async (e) => {
   };
 
   try {
-    const response = await fetch(API_URL, {
-      method: 'POST',
+    const response = await fetch(caseId ? `${API_URL}/${encodeURIComponent(caseId)}` : API_URL, {
+      method: caseId ? 'PUT' : 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`
@@ -95,7 +134,7 @@ form.addEventListener('submit', async (e) => {
       return;
     }
 
-    alert(data.mensagem || 'Caso enviado para revisão.');
+    alert(data.mensagem || (caseId ? 'Caso atualizado e enviado para revisão.' : 'Caso enviado para revisão.'));
     window.location.href = 'index.html';
   } catch (error) {
     console.error('Erro ao enviar:', error);

@@ -10,6 +10,19 @@ router.post('/auth/login', controllers.loginUsuario);
 // Rotas de Casos
 router.get('/criancas', controllers.listarCriancas);
 router.get(
+  '/criancas/minhas',
+  middlewares.verificarToken,
+  middlewares.autorizarPerfis('admin', 'moderador', 'aprovador', 'publicador', 'usuario'),
+  controllers.listarMinhasCriancas
+);
+router.get(
+  '/criancas/minhas/:id',
+  middlewares.verificarToken,
+  middlewares.autorizarPerfis('admin', 'moderador', 'aprovador', 'publicador', 'usuario'),
+  middlewares.validarIdCrianca,
+  controllers.obterMinhaCrianca
+);
+router.get(
   '/criancas/revisao',
   middlewares.verificarToken,
   middlewares.autorizarPerfis('admin', 'moderador', 'aprovador', 'publicador'),
@@ -22,6 +35,14 @@ router.post(
   middlewares.autorizarPerfis('admin', 'usuario'),
   middlewares.validarDadosCrianca,
   controllers.cadastrarCrianca
+);
+router.put(
+  '/criancas/:id',
+  middlewares.verificarToken,
+  middlewares.autorizarPerfis('admin', 'moderador', 'usuario'),
+  middlewares.validarIdCrianca,
+  middlewares.validarDadosCrianca,
+  controllers.atualizarCrianca
 );
 router.put(
   '/criancas/:id/fonte',

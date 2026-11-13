@@ -99,6 +99,48 @@ exports.listarCriancas = async (req, res) => {
   }
 };
 
+exports.listarMinhasCriancas = async (req, res) => {
+  try {
+    const [rows] = await db.execute(
+      `SELECT id, nome, idade_atual, idade_desaparecimento, cor_pele, cabelo,
+              olhos, altura, roupas_desaparecimento, caracteristicas_marcantes,
+              familiares_proximos, data_desaparecimento, local_desaparecimento,
+              ultimo_local_visto, locais_testemunhas, informacoes_adicionais,
+              fonte_tipo, fonte_referencia, dados_autorizados, status, criado_em
+       FROM criancas_desaparecidas
+       WHERE usuario_id = ?
+       ORDER BY criado_em DESC`,
+      [req.user.id]
+    );
+    return res.status(200).json(rows);
+  } catch (error) {
+    console.error('Erro ao buscar casos do usuário:', error);
+    return res.status(500).json({ erro: 'Erro ao buscar seus casos.' });
+  }
+};
+
+exports.obterMinhaCrianca = async (req, res) => {
+  try {
+    const [rows] = await db.execute(
+      `SELECT id, nome, idade_atual, idade_desaparecimento, cor_pele, cabelo,
+              olhos, altura, roupas_desaparecimento, caracteristicas_marcantes,
+              familiares_proximos, data_desaparecimento, local_desaparecimento,
+              ultimo_local_visto, locais_testemunhas, informacoes_adicionais,
+              fonte_tipo, fonte_referencia, dados_autorizados, status
+       FROM criancas_desaparecidas
+       WHERE id = ? AND usuario_id = ?`,
+      [Number(req.params.id), req.user.id]
+    );
+    if (rows.length === 0) {
+      return res.status(404).json({ erro: 'Caso não encontrado ou sem permissão para acessá-lo.' });
+    }
+    return res.status(200).json(rows[0]);
+  } catch (error) {
+    console.error('Erro ao buscar caso do usuário:', error);
+    return res.status(500).json({ erro: 'Erro ao buscar o caso.' });
+  }
+};
+
 exports.listarFilaRevisao = async (req, res) => {
   try {
     const [rows] = await db.execute(
@@ -106,7 +148,8 @@ exports.listarFilaRevisao = async (req, res) => {
               olhos, altura, roupas_desaparecimento, caracteristicas_marcantes,
               familiares_proximos, data_desaparecimento, local_desaparecimento,
               ultimo_local_visto, locais_testemunhas, informacoes_adicionais,
-              fonte_tipo, fonte_referencia, dados_autorizados, usuario_id,
+              fonte_tipo, fonte_referencia, dados_autorizados,
+              fonte_verificada_por, fonte_verificada_em, usuario_id,
               status, criado_em, atualizado_em
        FROM criancas_desaparecidas
        WHERE status IN ('pending_review', 'in_review', 'approved')
@@ -116,6 +159,83 @@ exports.listarFilaRevisao = async (req, res) => {
   } catch (error) {
     console.error('Erro ao buscar fila de revisão:', error);
     return res.status(500).json({ erro: 'Erro ao buscar casos para revisão.' });
+  }
+};
+
+exports.atualizarCrianca = async (req, res) => {
+  const dados = req.body;
+  let connection;
+
+  try {
+    connection = await db.getConnection();
+    await connection.beginTransaction();
+    const [casos] = await connection.execute(
+      'SELECT id, usuario_id, status FROM criancas_desaparecidas WHERE id = ? FOR UPDATE',
+      [Number(req.params.id)]
+    );
+
+    if (casos.length === 0) {
+      await connection.rollback();
+      return res.status(404).json({ erro: 'Caso não encontrado.' });
+    }
+
+    const caso = casos[0];
+    const dono = Number(caso.usuario_id) === Number(req.user.id);
+    const equipeEditora = ['admin', 'moderador'].includes(req.user.perfil);
+    const adminEditandoPublicado = req.user.perfil === 'admin';
+    const podeEditar = (dono && ['pending_review', 'rejected'].includes(caso.status))
+      || (equipeEditora && (caso.status !== 'published' || adminEditandoPublicado));
+
+    if (!podeEditar) {
+      await connection.rollback();
+      return res.status(403).json({
+        erro: 'Você não pode editar este caso neste status. Usuários podem alterar somente casos próprios pendentes ou reprovados.'
+      });
+    }
+
+    await connection.execute(
+      `UPDATE criancas_desaparecidas
+       SET nome = ?, idade_atual = ?, idade_desaparecimento = ?, cor_pele = ?,
+           cabelo = ?, olhos = ?, altura = ?, roupas_desaparecimento = ?,
+           caracteristicas_marcantes = ?, familiares_proximos = ?,
+           data_desaparecimento = ?, local_desaparecimento = ?,
+           ultimo_local_visto = ?, locais_testemunhas = ?,
+           informacoes_adicionais = ?, fonte_tipo = ?, fonte_referencia = ?,
+           dados_autorizados = ?, fonte_verificada_por = NULL,
+           fonte_verificada_em = NULL, status = 'pending_review'
+       WHERE id = ?`,
+      [
+        dados.nome, dados.idade_atual, dados.idade_desaparecimento,
+        dados.cor_pele, dados.cabelo, dados.olhos, dados.altura,
+        dados.roupas_desaparecimento, dados.caracteristicas_marcantes,
+        dados.familiares_proximos, dados.data_desaparecimento,
+        dados.local_desaparecimento, dados.ultimo_local_visto,
+        dados.locais_testemunhas, dados.informacoes_adicionais,
+        dados.fonte_tipo, dados.fonte_referencia, dados.dados_autorizados,
+        Number(req.params.id)
+      ]
+    );
+    await connection.execute(
+      `INSERT INTO historico_status_casos
+       (crianca_id, usuario_id, status_anterior, status_novo, observacao)
+       VALUES (?, ?, ?, 'pending_review', ?)`,
+      [
+        Number(req.params.id),
+        req.user.id,
+        caso.status,
+        'Dados atualizados; caso enviado novamente para revisão.'
+      ]
+    );
+    await connection.commit();
+    return res.status(200).json({
+      mensagem: 'Caso atualizado e enviado novamente para revisão.'
+    });
+  } catch (error) {
+    if (connection) await connection.rollback();
+    console.error('Erro ao atualizar caso:', error);
+    return res.status(500).json({ erro: 'Erro ao atualizar o caso.' });
+  } finally {
+    if (connection) connection.release();
   }
 };
 
@@ -178,7 +298,8 @@ async function alterarStatusCaso(req, res, statusAtual, statusNovo, observacao) 
     connection = await db.getConnection();
     await connection.beginTransaction();
     const [casos] = await connection.execute(
-      `SELECT id, status, fonte_tipo, fonte_referencia, dados_autorizados
+      `SELECT id, status, fonte_tipo, fonte_referencia, dados_autorizados,
+              fonte_verificada_por, fonte_verificada_em
        FROM criancas_desaparecidas WHERE id = ? FOR UPDATE`,
       [Number(req.params.id)]
     );
@@ -197,10 +318,12 @@ async function alterarStatusCaso(req, res, statusAtual, statusNovo, observacao) 
     if (statusNovo === 'approved'
       && (!['oficial', 'autorizada'].includes(casos[0].fonte_tipo)
         || !casos[0].fonte_referencia
-        || Number(casos[0].dados_autorizados) !== 1)) {
+        || Number(casos[0].dados_autorizados) !== 1
+        || !casos[0].fonte_verificada_por
+        || !casos[0].fonte_verificada_em)) {
       await connection.rollback();
       return res.status(409).json({
-        erro: 'Não é possível aprovar: verifique a fonte e confirme a autorização para divulgação.'
+        erro: 'Não é possível aprovar: um moderador deve verificar e registrar a fonte e a autorização.'
       });
     }
 
@@ -268,9 +391,10 @@ exports.atualizarFonteCaso = async (req, res) => {
     const statusNovo = statusAnterior === 'approved' ? 'in_review' : statusAnterior;
     await connection.execute(
       `UPDATE criancas_desaparecidas
-       SET fonte_tipo = ?, fonte_referencia = ?, dados_autorizados = 1, status = ?
+       SET fonte_tipo = ?, fonte_referencia = ?, dados_autorizados = 1,
+           fonte_verificada_por = ?, fonte_verificada_em = CURRENT_TIMESTAMP, status = ?
        WHERE id = ?`,
-      [req.body.fonte_tipo, req.body.fonte_referencia, statusNovo, Number(req.params.id)]
+      [req.body.fonte_tipo, req.body.fonte_referencia, req.user.id, statusNovo, Number(req.params.id)]
     );
     await connection.execute(
       `INSERT INTO historico_status_casos

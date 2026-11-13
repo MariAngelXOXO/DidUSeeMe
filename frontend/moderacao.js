@@ -59,6 +59,13 @@ async function carregarFila() {
       adicionarCampo(card, 'Status', caso.status);
       adicionarCampo(card, 'Fonte', `${caso.fonte_tipo}: ${caso.fonte_referencia}`);
       adicionarCampo(card, 'Autorização confirmada', caso.dados_autorizados ? 'Sim' : 'Não');
+      adicionarCampo(
+        card,
+        'Verificação da fonte',
+        caso.fonte_verificada_em
+          ? `Registrada em ${new Date(caso.fonte_verificada_em).toLocaleString()}`
+          : 'Pendente'
+      );
       adicionarCampo(card, 'Informações de familiares (restritas)', caso.familiares_proximos);
       adicionarCampo(card, 'Último local visto (restrito)', caso.ultimo_local_visto);
       adicionarCampo(card, 'Relato de testemunhas (restrito)', caso.locais_testemunhas);
@@ -75,7 +82,8 @@ async function carregarFila() {
         card.appendChild(criarBotao('Iniciar revisão', () => executarAcao(caso.id, 'revisar')));
       }
       if (caso.status === 'in_review') {
-        if (['admin', 'aprovador'].includes(usuario.perfil)) {
+        if (caso.fonte_verificada_por && caso.fonte_verificada_em
+          && ['admin', 'aprovador'].includes(usuario.perfil)) {
           card.appendChild(criarBotao('Aprovar', () => executarAcao(caso.id, 'aprovar')));
         }
         if (['admin', 'moderador', 'aprovador'].includes(usuario.perfil)) {
