@@ -1,6 +1,16 @@
 const API_URL = 'http://localhost:3000/api/criancas';
+let casosPublicados = [];
+let casosPublicadosCarregados = false;
 
 document.addEventListener('DOMContentLoaded', () => {
+  const searchForm = document.getElementById('case-search-form');
+  const searchInput = document.getElementById('case-search');
+  searchForm.addEventListener('submit', event => {
+    event.preventDefault();
+    document.getElementById('casos').scrollIntoView({ behavior: 'smooth' });
+    carregarCasos(searchInput.value);
+  });
+  searchInput.addEventListener('input', () => carregarCasos(searchInput.value));
   verificarAutenticacaoUI();
   carregarCasos();
 });
@@ -23,13 +33,13 @@ function verificarAutenticacaoUI() {
     const nome = document.createElement('strong');
     nome.textContent = usuario.nome;
     saudacao.appendChild(nome);
-    navAuth.replaceChildren(saudacao, document.createTextNode(' | '));
+    navAuth.replaceChildren(saudacao);
 
     if (['admin', 'moderador', 'aprovador', 'publicador'].includes(usuario.perfil)) {
       const linkRevisao = document.createElement('a');
       linkRevisao.href = 'moderacao.html';
       linkRevisao.textContent = 'Revisar casos';
-      navAuth.append(linkRevisao, document.createTextNode(' | '));
+      navAuth.appendChild(linkRevisao);
     }
 
     const linkSair = document.createElement('a');
@@ -128,23 +138,37 @@ async function excluirMeuCaso(id, token) {
   }
 }
 
-async function carregarCasos() {
+async function carregarCasos(termoBusca = '') {
   const container = document.getElementById('cards-container');
   try {
-    const response = await fetch(API_URL);
-    if (!response.ok) {
-      throw new Error(`Falha ao carregar os casos (HTTP ${response.status}).`);
+    if (!casosPublicadosCarregados) {
+      const response = await fetch(API_URL);
+      if (!response.ok) {
+        throw new Error(`Falha ao carregar os casos (HTTP ${response.status}).`);
+      }
+      casosPublicados = await response.json();
+      casosPublicadosCarregados = true;
     }
-    const criancas = await response.json();
-    container.innerHTML = '';
 
-    if (criancas.length === 0) {
-      container.textContent = 'Nenhum caso publicado no momento.';
+    const buscaNormalizada = termoBusca.trim().toLocaleLowerCase('pt-BR');
+    const casosFiltrados = casosPublicados.filter(caso => {
+      const camposBusca = [caso.nome, caso.local_desaparecimento, caso.idade_atual]
+        .filter(valor => valor !== null && valor !== undefined)
+        .join(' ')
+        .toLocaleLowerCase('pt-BR');
+      return camposBusca.includes(buscaNormalizada);
+    });
+
+    container.replaceChildren();
+    if (casosFiltrados.length === 0) {
+      container.textContent = casosPublicados.length === 0
+        ? 'Nenhum caso publicado no momento.'
+        : 'Nenhum caso corresponde à sua busca.';
       return;
     }
 
-    criancas.forEach(c => {
-      const card = document.createElement('div');
+    casosFiltrados.forEach(c => {
+      const card = document.createElement('article');
       card.className = 'card';
 
       const titulo = document.createElement('h3');

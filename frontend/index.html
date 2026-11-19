@@ -3,39 +3,150 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#14263a">
   <title>Did U See Me? - Crianças Desaparecidas</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <header>
-    <h1>Did U See Me?</h1>
-    <p>Mais informação, mais conscientização e mais possibilidades de ajudar. Juntos somos mais fortes.</p>
-    <nav class="nav-links" id="nav-auth" aria-label="Navegação da conta">
-      <!-- Dinâmico via JS -->
+  <header class="site-header" id="inicio">
+    <a class="brand" href="#inicio" aria-label="Did U See Me? - início">
+      <span class="brand-mark" aria-hidden="true">D</span>
+      <span class="brand-name">DID U<br>SEE ME?</span>
+    </a>
+    <nav class="main-nav" aria-label="Navegação principal">
+      <a class="active" href="#inicio">Início</a>
+      <a href="#projeto">Sobre</a>
+      <a href="#casos">Casos</a>
+      <a href="#ajuda">Como Ajudar</a>
+      <a href="#informacoes">Informações</a>
+      <a href="#contato">Contato</a>
     </nav>
+    <nav class="account-nav" id="nav-auth" aria-label="Navegação da conta"></nav>
   </header>
 
-  <main class="container">
-    <section class="emergency-notice">
-      <p>🚨 Tem informações sobre alguma criança? Ligue imediatamente para a Polícia: <strong>190</strong> ou Disque 100.</p>
+  <main>
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="hero-copy">
+        <p class="eyebrow">Juntos na busca por crianças desaparecidas</p>
+        <h1 id="hero-title">Mais informação,<br>mais conscientização,<br>mais possibilidades<br><span>de ajudar.</span></h1>
+        <p class="hero-description">Juntos somos mais fortes na busca por crianças desaparecidas no Brasil.</p>
+        <form class="search-form" id="case-search-form" role="search">
+          <label class="sr-only" for="case-search">Buscar casos por nome ou local</label>
+          <span class="search-icon" aria-hidden="true"></span>
+          <input type="search" id="case-search" placeholder="Busque por nome, cidade ou estado...">
+          <button type="submit" aria-label="Buscar casos"><span class="search-icon" aria-hidden="true"></span></button>
+        </form>
+      </div>
+      <div class="hero-visual">
+        <svg class="hero-illustration" viewBox="0 0 640 440" role="img" aria-labelledby="hero-image-title">
+          <title id="hero-image-title">Ilustração simbólica de uma criança com um ursinho</title>
+          <defs>
+            <linearGradient id="scene" x1="0" x2="1" y1="0" y2="1">
+              <stop offset="0" stop-color="#b9b8b2"/>
+              <stop offset="1" stop-color="#777b7b"/>
+            </linearGradient>
+            <linearGradient id="shirt" x1="0" x2="1">
+              <stop stop-color="#777d7c"/>
+              <stop offset="1" stop-color="#454d50"/>
+            </linearGradient>
+            <filter id="soft">
+              <feGaussianBlur stdDeviation="24"/>
+            </filter>
+          </defs>
+          <rect width="640" height="440" fill="url(#scene)"/>
+          <circle cx="112" cy="112" r="115" fill="#e1dfd7" opacity=".55" filter="url(#soft)"/>
+          <circle cx="565" cy="95" r="130" fill="#363c40" opacity=".52" filter="url(#soft)"/>
+          <path d="M0 348 Q150 295 245 340 T640 316 V440 H0Z" fill="#c8c3b9" opacity=".52"/>
+          <path d="M96 440 Q120 339 229 322 L330 301 Q438 320 497 440Z" fill="url(#shirt)"/>
+          <path d="M204 298 Q215 253 206 223 L313 210 Q302 268 337 306 Q291 345 204 298Z" fill="#a2a19a"/>
+          <path d="M205 189 Q204 91 275 79 Q357 84 357 185 L340 246 Q316 280 266 278 Q216 264 205 189Z" fill="#33383b"/>
+          <circle cx="286" cy="67" r="43" fill="#292e32"/>
+          <path d="M209 151 Q214 98 264 91 Q322 78 352 139 Q330 116 307 118 Q275 137 242 119 Q230 148 209 151Z" fill="#202629"/>
+          <path d="M229 180 Q239 157 248 139 M253 184 Q264 155 275 134 M286 181 Q295 152 307 132 M318 184 Q324 157 337 147" fill="none" stroke="#777b79" stroke-width="4" opacity=".48"/>
+          <circle cx="400" cy="258" r="39" fill="#c5b692"/>
+          <circle cx="369" cy="228" r="18" fill="#c5b692"/>
+          <circle cx="431" cy="228" r="18" fill="#c5b692"/>
+          <circle cx="369" cy="228" r="8" fill="#9d8b68"/>
+          <circle cx="431" cy="228" r="8" fill="#9d8b68"/>
+          <ellipse cx="400" cy="347" rx="45" ry="55" fill="#b9a67f"/>
+          <path d="M367 279 Q344 292 341 323 M433 279 Q458 292 461 323" fill="none" stroke="#b9a67f" stroke-width="24" stroke-linecap="round"/>
+          <ellipse cx="389" cy="257" rx="4" ry="5" fill="#403b31"/>
+          <ellipse cx="411" cy="257" rx="4" ry="5" fill="#403b31"/>
+          <path d="M393 270 Q400 277 407 270" fill="none" stroke="#5d5140" stroke-width="3" stroke-linecap="round"/>
+          <path d="M340 440 Q353 361 389 330 M483 440 Q457 365 420 330" fill="none" stroke="#9ea09a" stroke-width="8" opacity=".34"/>
+        </svg>
+        <p class="hero-note">Toda criança<br>tem o direito<br>de voltar para casa.</p>
+      </div>
     </section>
 
-    <section class="list-section" aria-labelledby="cases-heading">
-      <div class="section-header">
-        <h2 id="cases-heading">Casos Registrados</h2>
-        <a href="cadastrar.html" id="btn-novo-caso" class="btn hidden">Cadastrar Novo Caso</a>
-      </div>
-      <div id="cards-container" class="cards-grid">
-        <!-- Casos carregados via JavaScript -->
+    <section class="feature-grid" aria-label="Acesse as principais áreas">
+      <a class="feature-card" href="#casos">
+        <span class="feature-icon" aria-hidden="true">⌕</span>
+        <span><strong>Casos</strong><small>Acesse informações sobre crianças desaparecidas em todo o Brasil.</small><span class="text-link">Ver casos <span aria-hidden="true">→</span></span></span>
+      </a>
+      <a class="feature-card" id="ajuda" href="#informacoes">
+        <span class="feature-icon heart-icon" aria-hidden="true">♡</span>
+        <span><strong>Como Ajudar</strong><small>Compartilhe, informe-se e contribua para encontrar mais crianças.</small><span class="text-link">Saiba mais <span aria-hidden="true">→</span></span></span>
+      </a>
+      <a class="feature-card" href="#projeto">
+        <span class="feature-icon info-icon" aria-hidden="true">i</span>
+        <span><strong>Sobre o Projeto</strong><small>Conheça o DIDUSEEME e entenda nossa missão.</small><span class="text-link">Saiba mais <span aria-hidden="true">→</span></span></span>
+      </a>
+    </section>
+
+    <div class="content-grid">
+      <section class="mission-panel" id="projeto" aria-labelledby="mission-title">
+        <div>
+          <p class="eyebrow">Nossa missão</p>
+          <h2 id="mission-title">O problema</h2>
+          <p>O desaparecimento de crianças é um grave problema social no Brasil, que causa angústia e insegurança para inúmeras famílias. Muitas vezes, informações importantes ficam dispersas em diferentes canais, dificultando a localização e a ajuda das autoridades.</p>
+          <p class="mission-emphasis">O DIDUSEEME existe para mudar essa realidade.</p>
+          <a class="btn btn-light" href="#informacoes">Saiba mais sobre o projeto <span aria-hidden="true">→</span></a>
+        </div>
+        <span class="bear-mark" aria-hidden="true">♡</span>
+      </section>
+
+      <section class="list-section" id="casos" aria-labelledby="cases-heading">
+        <div class="section-header">
+          <h2 id="cases-heading">Últimos casos</h2>
+          <a class="text-link" href="#case-search">Ver todos os casos <span aria-hidden="true">→</span></a>
+        </div>
+        <div id="cards-container" class="cards-grid" aria-live="polite">
+          <p class="loading-message">Carregando casos...</p>
+        </div>
+      </section>
+    </div>
+
+    <section class="emergency-notice" id="informacoes">
+      <span class="emergency-icon" aria-hidden="true">!</span>
+      <div>
+        <strong>Tem informações sobre alguma criança?</strong>
+        <p>Procure imediatamente as autoridades. Ligue para a Polícia: <a href="tel:190">190</a> ou Disque 100.</p>
       </div>
     </section>
 
-    <section id="my-cases-section" class="list-section hidden" aria-labelledby="my-cases-heading">
+    <section id="my-cases-section" class="list-section my-cases-section hidden" aria-labelledby="my-cases-heading">
       <h2 id="my-cases-heading">Meus casos</h2>
       <p>Casos ainda não publicados ficam visíveis somente para você e para a equipe autorizada.</p>
       <div id="my-cases-container" class="cards-grid"></div>
     </section>
   </main>
+
+  <footer class="site-footer" id="contato">
+    <a class="brand footer-brand" href="#inicio" aria-label="Did U See Me? - voltar ao início">
+      <span class="brand-mark" aria-hidden="true">D</span>
+      <span class="brand-name">DID U<br>SEE ME?</span>
+    </a>
+    <p class="footer-message">Informação também salva vidas.</p>
+    <nav aria-label="Links do rodapé">
+      <a href="#projeto">Sobre</a>
+      <a href="#casos">Casos</a>
+      <a href="#ajuda">Como ajudar</a>
+      <a href="#informacoes">Informações</a>
+      <a href="tel:190">Polícia: 190</a>
+    </nav>
+    <p class="footer-legal">DIDUSEEME — Por um Brasil onde nenhuma criança desapareça.</p>
+  </footer>
 
   <script src="script.js"></script>
 </body>
