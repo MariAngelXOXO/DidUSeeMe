@@ -12,7 +12,7 @@ exports.registrarUsuario = async (req, res) => {
   try {
     const [existing] = await db.execute('SELECT id FROM usuarios WHERE email = ?', [email]);
     if (existing.length > 0) {
-      return res.status(400).json({ erro: 'Este e-mail já está cadastrado.' });
+      return res.status(409).json({ erro: 'Este e-mail já está cadastrado.' });
     }
 
     const [perfis] = await db.execute("SELECT id FROM perfis WHERE nome = 'usuario'");
@@ -29,6 +29,9 @@ exports.registrarUsuario = async (req, res) => {
     );
     return res.status(201).json({ mensagem: 'Usuário cadastrado com sucesso!' });
   } catch (error) {
+    if (error.code === 'ER_DUP_ENTRY') {
+      return res.status(409).json({ erro: 'Este e-mail já está cadastrado.' });
+    }
     console.error('Erro ao registrar usuário:', error);
     return res.status(500).json({ erro: 'Erro interno no servidor.' });
   }
@@ -151,13 +154,40 @@ exports.listarFilaRevisao = async (req, res) => {
               fonte_verificada_por, fonte_verificada_em, usuario_id,
               status, criado_em, atualizado_em
        FROM criancas_desaparecidas
-       WHERE status IN ('pending_review', 'in_review', 'approved')
+       WHERE status IN ('pending_review', 'in_review', 'approved', 'published', 'archived')
        ORDER BY criado_em ASC`
     );
     return res.status(200).json(rows);
   } catch (error) {
     console.error('Erro ao buscar fila de revisão:', error);
     return res.status(500).json({ erro: 'Erro ao buscar casos para revisão.' });
+  }
+};
+
+exports.listarHistoricoCrianca = async (req, res) => {
+  try {
+    const [casos] = await db.execute(
+      'SELECT id FROM criancas_desaparecidas WHERE id = ?',
+      [Number(req.params.id)]
+    );
+    if (casos.length === 0) {
+      return res.status(404).json({ erro: 'Caso não encontrado.' });
+    }
+
+    const [rows] = await db.execute(
+      `SELECT h.id, h.status_anterior, h.status_novo,
+              COALESCE(h.usuario_nome, u.nome, 'Conta removida') AS responsavel,
+              h.observacao, h.criado_em
+       FROM historico_status_casos AS h
+       LEFT JOIN usuarios AS u ON u.id = h.usuario_id
+       WHERE h.crianca_id = ?
+       ORDER BY h.criado_em ASC, h.id ASC`,
+      [Number(req.params.id)]
+    );
+    return res.status(200).json(rows);
+  } catch (error) {
+    console.error('Erro ao buscar histórico do caso:', error);
+    return res.status(500).json({ erro: 'Erro ao buscar o histórico do caso.' });
   }
 };
 
@@ -182,8 +212,9 @@ exports.atualizarCrianca = async (req, res) => {
     const dono = Number(caso.usuario_id) === Number(req.user.id);
     const equipeEditora = ['admin', 'moderador'].includes(req.user.perfil);
     const adminEditandoPublicado = req.user.perfil === 'admin';
-    const podeEditar = (dono && ['pending_review', 'rejected'].includes(caso.status))
-      || (equipeEditora && (caso.status !== 'published' || adminEditandoPublicado));
+    const podeEditar = caso.status !== 'archived'
+      && ((dono && ['pending_review', 'rejected'].includes(caso.status))
+        || (equipeEditora && (caso.status !== 'published' || adminEditandoPublicado)));
 
     if (!podeEditar) {
       await connection.rollback();
@@ -216,11 +247,12 @@ exports.atualizarCrianca = async (req, res) => {
     );
     await connection.execute(
       `INSERT INTO historico_status_casos
-       (crianca_id, usuario_id, status_anterior, status_novo, observacao)
-       VALUES (?, ?, ?, 'pending_review', ?)`,
+       (crianca_id, usuario_id, usuario_nome, status_anterior, status_novo, observacao)
+       VALUES (?, ?, ?, ?, 'pending_review', ?)`,
       [
         Number(req.params.id),
         req.user.id,
+        req.user.nome,
         caso.status,
         'Dados atualizados; caso enviado novamente para revisão.'
       ]
@@ -272,9 +304,9 @@ exports.cadastrarCrianca = async (req, res) => {
     const [result] = await connection.execute(query, values);
     await connection.execute(
       `INSERT INTO historico_status_casos
-       (crianca_id, usuario_id, status_anterior, status_novo, observacao)
-       VALUES (?, ?, NULL, 'pending_review', ?)`,
-      [result.insertId, usuarioId, 'Caso enviado para revisão.']
+       (crianca_id, usuario_id, usuario_nome, status_anterior, status_novo, observacao)
+       VALUES (?, ?, ?, NULL, 'pending_review', ?)`,
+      [result.insertId, usuarioId, req.user.nome, 'Caso enviado para revisão.']
     );
     await connection.commit();
 
@@ -332,9 +364,9 @@ async function alterarStatusCaso(req, res, statusAtual, statusNovo, observacao) 
     );
     await connection.execute(
       `INSERT INTO historico_status_casos
-       (crianca_id, usuario_id, status_anterior, status_novo, observacao)
-       VALUES (?, ?, ?, ?, ?)`,
-      [Number(req.params.id), req.user.id, statusAtual, statusNovo, observacao]
+       (crianca_id, usuario_id, usuario_nome, status_anterior, status_novo, observacao)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [Number(req.params.id), req.user.id, req.user.nome, statusAtual, statusNovo, observacao]
     );
     await connection.commit();
     return res.status(200).json({ mensagem: `Status do caso atualizado para "${statusNovo}".` });
@@ -367,6 +399,52 @@ exports.reprovarCrianca = (req, res) => {
   return alterarStatusCaso(req, res, 'in_review', 'rejected', observacao.trim());
 };
 
+exports.arquivarCrianca = async (req, res) => {
+  let connection;
+  try {
+    connection = await db.getConnection();
+    await connection.beginTransaction();
+
+    const [casos] = await connection.execute(
+      'SELECT id, status FROM criancas_desaparecidas WHERE id = ? FOR UPDATE',
+      [Number(req.params.id)]
+    );
+    if (casos.length === 0) {
+      await connection.rollback();
+      return res.status(404).json({ erro: 'Caso não encontrado.' });
+    }
+    if (casos[0].status !== 'published') {
+      await connection.rollback();
+      return res.status(409).json({
+        erro: 'Somente casos publicados podem ser arquivados.',
+        status_atual: casos[0].status
+      });
+    }
+
+    await connection.execute(
+      "UPDATE criancas_desaparecidas SET status = 'archived' WHERE id = ?",
+      [Number(req.params.id)]
+    );
+    await connection.execute(
+      `INSERT INTO historico_status_casos
+       (crianca_id, usuario_id, usuario_nome, status_anterior, status_novo, observacao)
+       VALUES (?, ?, ?, 'published', 'archived', ?)`,
+      [Number(req.params.id), req.user.id, req.user.nome, req.body.observacao]
+    );
+
+    await connection.commit();
+    return res.status(200).json({
+      mensagem: 'Caso retirado da lista pública e arquivado com justificativa.'
+    });
+  } catch (error) {
+    if (connection) await connection.rollback();
+    console.error('Erro ao arquivar caso:', error);
+    return res.status(500).json({ erro: 'Erro ao arquivar o caso.' });
+  } finally {
+    if (connection) connection.release();
+  }
+};
+
 exports.atualizarFonteCaso = async (req, res) => {
   let connection;
   try {
@@ -397,11 +475,12 @@ exports.atualizarFonteCaso = async (req, res) => {
     );
     await connection.execute(
       `INSERT INTO historico_status_casos
-       (crianca_id, usuario_id, status_anterior, status_novo, observacao)
-       VALUES (?, ?, ?, ?, ?)`,
+       (crianca_id, usuario_id, usuario_nome, status_anterior, status_novo, observacao)
+       VALUES (?, ?, ?, ?, ?, ?)`,
       [
         Number(req.params.id),
         req.user.id,
+        req.user.nome,
         statusAnterior,
         statusNovo,
         'Fonte e autorização de divulgação revisadas.'
@@ -424,21 +503,42 @@ exports.atualizarFonteCaso = async (req, res) => {
 
 // Cada usuário pode excluir os próprios casos; somente o admin pode excluir qualquer caso.
 exports.excluirCrianca = async (req, res) => {
+  let connection;
   try {
-    const [result] = req.user.perfil === 'admin'
-      ? await db.execute('DELETE FROM criancas_desaparecidas WHERE id = ?', [Number(req.params.id)])
-      : await db.execute(
-        'DELETE FROM criancas_desaparecidas WHERE id = ? AND usuario_id = ?',
-        [Number(req.params.id), req.user.id]
-      );
+    connection = await db.getConnection();
+    await connection.beginTransaction();
 
-    if (result.affectedRows === 0) {
+    const [casos] = await connection.execute(
+      'SELECT id, usuario_id, status FROM criancas_desaparecidas WHERE id = ? FOR UPDATE',
+      [Number(req.params.id)]
+    );
+
+    if (casos.length === 0) {
+      await connection.rollback();
       return res.status(404).json({ erro: 'Caso não encontrado ou você não tem permissão para excluí-lo.' });
     }
+    if (Number(casos[0].usuario_id) !== Number(req.user.id) && req.user.perfil !== 'admin') {
+      await connection.rollback();
+      return res.status(404).json({ erro: 'Caso não encontrado ou você não tem permissão para excluí-lo.' });
+    }
+    if (['published', 'archived'].includes(casos[0].status)) {
+      await connection.rollback();
+      return res.status(409).json({
+        erro: 'Casos publicados ou arquivados não podem ser excluídos definitivamente. Arquive casos publicados para preservar o histórico.'
+      });
+    }
 
+    await connection.execute(
+      'DELETE FROM criancas_desaparecidas WHERE id = ?',
+      [Number(req.params.id)]
+    );
+    await connection.commit();
     return res.status(200).json({ mensagem: 'Caso excluído com sucesso.' });
   } catch (error) {
+    if (connection) await connection.rollback();
     console.error('Erro ao excluir caso:', error);
     return res.status(500).json({ erro: 'Erro ao excluir o caso.' });
+  } finally {
+    if (connection) connection.release();
   }
 };

@@ -46,7 +46,7 @@ async function carregarFila() {
 
     queue.replaceChildren();
     if (data.length === 0) {
-      queue.textContent = 'Não há casos aguardando revisão, aprovação ou publicação.';
+      queue.textContent = 'Não há casos aguardando revisão, aprovação, publicação ou arquivamento.';
       return;
     }
 
@@ -93,6 +93,12 @@ async function carregarFila() {
       if (caso.status === 'approved' && ['admin', 'publicador'].includes(usuario.perfil)) {
         card.appendChild(criarBotao('Publicar', () => executarAcao(caso.id, 'publicar')));
       }
+      if (caso.status === 'published' && ['admin', 'moderador'].includes(usuario.perfil)) {
+        card.appendChild(criarBotao('Arquivar e retirar do público', () => arquivar(caso.id)));
+      }
+      if (caso.status === 'archived') {
+        card.appendChild(criarBotao('Ver histórico auditável', () => carregarHistorico(card, caso.id)));
+      }
       queue.appendChild(card);
     });
   } catch (error) {
@@ -124,6 +130,43 @@ function reprovar(id) {
   const observacao = window.prompt('Informe o motivo da reprovação:');
   if (observacao === null) return;
   executarAcao(id, 'reprovar', { observacao });
+}
+
+function arquivar(id) {
+  const observacao = window.prompt('Informe o motivo para retirar e arquivar este caso:');
+  if (observacao === null) return;
+  if (!observacao.trim()) {
+    window.alert('O motivo do arquivamento é obrigatório.');
+    return;
+  }
+  executarAcao(id, 'arquivar', { observacao: observacao.trim() });
+}
+
+async function carregarHistorico(card, id) {
+  try {
+    const response = await fetch(`${API_URL}/${id}/historico`, {
+      headers: { Authorization: 'Bearer ' + token }
+    });
+    const eventos = await response.json();
+    if (!response.ok) throw new Error(eventos.erro || 'Não foi possível carregar o histórico.');
+
+    const historico = document.createElement('div');
+    historico.className = 'case-history';
+    const titulo = document.createElement('h4');
+    titulo.textContent = 'Histórico de status';
+    historico.appendChild(titulo);
+    eventos.forEach(evento => {
+      const linha = document.createElement('p');
+      const data = evento.criado_em ? new Date(evento.criado_em).toLocaleString() : 'Data desconhecida';
+      linha.textContent = `${evento.status_anterior || 'novo'} → ${evento.status_novo} | ${data} | ${evento.responsavel}: ${evento.observacao || 'Sem observação'}`;
+      historico.appendChild(linha);
+    });
+    card.querySelector('.case-history')?.remove();
+    card.appendChild(historico);
+  } catch (error) {
+    console.error('Erro ao carregar histórico:', error);
+    window.alert(error.message || 'Erro ao carregar o histórico.');
+  }
 }
 
 async function atualizarFonte(id, tipoAtual, referenciaAtual) {

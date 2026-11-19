@@ -51,6 +51,70 @@ function autorizarPerfis(...perfisPermitidos) {
   };
 }
 
+function validarRegistroUsuario(req, res, next) {
+  const dados = req.body;
+  if (!dados || typeof dados !== 'object' || Array.isArray(dados)) {
+    return res.status(400).json({ erro: 'Envie os dados de cadastro em formato válido.' });
+  }
+
+  const nome = typeof dados.nome === 'string' ? dados.nome.trim() : '';
+  const email = typeof dados.email === 'string' ? dados.email.trim().toLowerCase() : '';
+  const senha = dados.senha;
+
+  if (nome.length < 2 || nome.length > 150) {
+    return res.status(400).json({ erro: 'O nome deve ter entre 2 e 150 caracteres.' });
+  }
+  if (email.length > 150 || !emailValido(email)) {
+    return res.status(400).json({ erro: 'Informe um endereço de e-mail válido.' });
+  }
+  if (typeof senha !== 'string'
+    || Buffer.byteLength(senha, 'utf8') < 8
+    || Buffer.byteLength(senha, 'utf8') > 72) {
+    return res.status(400).json({ erro: 'A senha deve ter entre 8 e 72 bytes.' });
+  }
+
+  req.body = { nome, email, senha };
+  return next();
+}
+
+function validarLoginUsuario(req, res, next) {
+  const dados = req.body;
+  if (!dados || typeof dados !== 'object' || Array.isArray(dados)) {
+    return res.status(400).json({ erro: 'Envie os dados de login em formato válido.' });
+  }
+
+  const email = typeof dados.email === 'string' ? dados.email.trim().toLowerCase() : '';
+  if (email.length > 150 || !emailValido(email)) {
+    return res.status(400).json({ erro: 'Informe um endereço de e-mail válido.' });
+  }
+  if (typeof dados.senha !== 'string' || dados.senha.length === 0) {
+    return res.status(400).json({ erro: 'Informe a senha.' });
+  }
+
+  req.body = { email, senha: dados.senha };
+  return next();
+}
+
+function emailValido(email) {
+  const [parteLocal, dominio, ...partesExtras] = email.split('@');
+  if (partesExtras.length > 0 || !parteLocal || !dominio || parteLocal.length > 64) {
+    return false;
+  }
+  if (parteLocal.startsWith('.') || parteLocal.endsWith('.') || parteLocal.includes('..')) {
+    return false;
+  }
+  if (!/^[A-Z0-9!#$%&'*+/=?^_`{|}~.-]+$/i.test(parteLocal)) {
+    return false;
+  }
+
+  const etiquetas = dominio.split('.');
+  return etiquetas.length >= 2
+    && /[A-Z]/i.test(etiquetas[etiquetas.length - 1])
+    && etiquetas.every(etiqueta => etiqueta.length >= 1
+      && etiqueta.length <= 63
+      && /^[A-Z0-9](?:[A-Z0-9-]*[A-Z0-9])?$/i.test(etiqueta));
+}
+
 function validarDadosCrianca(req, res, next) {
   const dados = req.body;
   if (!dados || typeof dados !== 'object' || Array.isArray(dados)) {
@@ -193,10 +257,26 @@ function validarFonteCaso(req, res, next) {
   return next();
 }
 
+function validarMotivoArquivamento(req, res, next) {
+  const { observacao } = req.body || {};
+  if (typeof observacao !== 'string' || observacao.trim() === '') {
+    return res.status(400).json({ erro: 'Informe o motivo do arquivamento.' });
+  }
+  if (observacao.trim().length > 1000) {
+    return res.status(400).json({ erro: 'O motivo deve ter no máximo 1000 caracteres.' });
+  }
+
+  req.body.observacao = observacao.trim();
+  return next();
+}
+
 module.exports = {
   verificarToken,
   autorizarPerfis,
+  validarRegistroUsuario,
+  validarLoginUsuario,
   validarDadosCrianca,
   validarIdCrianca,
-  validarFonteCaso
+  validarFonteCaso,
+  validarMotivoArquivamento
 };

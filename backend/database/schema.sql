@@ -110,7 +110,7 @@ CREATE TABLE IF NOT EXISTS criancas_desaparecidas (
     ultimo_local_visto VARCHAR(255) NULL,
     locais_testemunhas TEXT NULL,
     informacoes_adicionais TEXT NULL,
-    usuario_id INT NOT NULL,
+    usuario_id INT NULL,
     status VARCHAR(32) NOT NULL DEFAULT 'pending_review',
     fonte_tipo VARCHAR(20) NOT NULL,
     fonte_referencia VARCHAR(500) NOT NULL,
@@ -122,7 +122,7 @@ CREATE TABLE IF NOT EXISTS criancas_desaparecidas (
     CONSTRAINT fk_criancas_usuario
         FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
         ON UPDATE CASCADE
-        ON DELETE CASCADE,
+        ON DELETE SET NULL,
     CONSTRAINT fk_criancas_fonte_verificada
         FOREIGN KEY (fonte_verificada_por) REFERENCES usuarios(id)
         ON UPDATE CASCADE
@@ -251,6 +251,7 @@ CREATE TABLE IF NOT EXISTS historico_status_casos (
     id INT AUTO_INCREMENT PRIMARY KEY,
     crianca_id INT NOT NULL,
     usuario_id INT NULL,
+    usuario_nome VARCHAR(150) NULL,
     status_anterior VARCHAR(32) NULL,
     status_novo VARCHAR(32) NOT NULL,
     observacao VARCHAR(1000) NULL,
@@ -265,6 +266,27 @@ CREATE TABLE IF NOT EXISTS historico_status_casos (
         ON DELETE SET NULL,
     INDEX idx_historico_caso_data (crianca_id, criado_em)
 );
+
+SET @historico_usuario_nome_existe = (
+    SELECT COUNT(*)
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'historico_status_casos'
+      AND COLUMN_NAME = 'usuario_nome'
+);
+SET @sql_migracao = IF(
+    @historico_usuario_nome_existe = 0,
+    'ALTER TABLE historico_status_casos ADD COLUMN usuario_nome VARCHAR(150) NULL',
+    'SELECT 1'
+);
+PREPARE stmt_migracao FROM @sql_migracao;
+EXECUTE stmt_migracao;
+DEALLOCATE PREPARE stmt_migracao;
+
+UPDATE historico_status_casos AS h
+INNER JOIN usuarios AS u ON u.id = h.usuario_id
+SET h.usuario_nome = u.nome
+WHERE h.usuario_nome IS NULL;
 
 -- Compatibilidade com casos antigos sem vínculo a um usuário.
 SET @usuario_id_existe = (
@@ -298,7 +320,7 @@ SET @usuarios_orfaos = (
       AND u.id IS NULL
 );
 SET @sql_migracao = IF(
-    @usuarios_orfaos > 0 AND @usuario_id_nullable = 'NO',
+    @usuario_id_nullable = 'NO',
     'ALTER TABLE criancas_desaparecidas MODIFY COLUMN usuario_id INT NULL',
     'SELECT 1'
 );
@@ -312,18 +334,62 @@ SET usuario_id = NULL
 WHERE c.usuario_id IS NOT NULL
   AND u.id IS NULL;
 
-SET @fk_crianca_usuario_existe = (
-    SELECT COUNT(*)
-    FROM information_schema.KEY_COLUMN_USAGE
-    WHERE TABLE_SCHEMA = DATABASE()
-      AND TABLE_NAME = 'criancas_desaparecidas'
-      AND COLUMN_NAME = 'usuario_id'
-      AND REFERENCED_TABLE_NAME = 'usuarios'
-      AND REFERENCED_COLUMN_NAME = 'id'
+SET @fk_crianca_usuario_nome = (
+    SELECT k.CONSTRAINT_NAME
+    FROM information_schema.KEY_COLUMN_USAGE AS k
+    INNER JOIN information_schema.REFERENTIAL_CONSTRAINTS AS r
+        ON r.CONSTRAINT_SCHEMA = k.CONSTRAINT_SCHEMA
+       AND r.CONSTRAINT_NAME = k.CONSTRAINT_NAME
+    WHERE k.TABLE_SCHEMA = DATABASE()
+      AND k.TABLE_NAME = 'criancas_desaparecidas'
+      AND k.COLUMN_NAME = 'usuario_id'
+      AND k.REFERENCED_TABLE_NAME = 'usuarios'
+      AND k.REFERENCED_COLUMN_NAME = 'id'
+    LIMIT 1
+);
+SET @fk_crianca_usuario_regra = (
+    SELECT r.DELETE_RULE
+    FROM information_schema.KEY_COLUMN_USAGE AS k
+    INNER JOIN information_schema.REFERENTIAL_CONSTRAINTS AS r
+        ON r.CONSTRAINT_SCHEMA = k.CONSTRAINT_SCHEMA
+       AND r.CONSTRAINT_NAME = k.CONSTRAINT_NAME
+    WHERE k.TABLE_SCHEMA = DATABASE()
+      AND k.TABLE_NAME = 'criancas_desaparecidas'
+      AND k.COLUMN_NAME = 'usuario_id'
+      AND k.REFERENCED_TABLE_NAME = 'usuarios'
+      AND k.REFERENCED_COLUMN_NAME = 'id'
+    LIMIT 1
 );
 SET @sql_migracao = IF(
-    @fk_crianca_usuario_existe = 0,
-    'ALTER TABLE criancas_desaparecidas ADD CONSTRAINT fk_criancas_usuario FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON UPDATE CASCADE ON DELETE CASCADE',
+    @fk_crianca_usuario_nome IS NOT NULL
+        AND COALESCE(@fk_crianca_usuario_regra, '') <> 'SET NULL',
+    CONCAT(
+        'ALTER TABLE criancas_desaparecidas DROP FOREIGN KEY `',
+        REPLACE(@fk_crianca_usuario_nome, '`', '``'),
+        '`'
+    ),
+    'SELECT 1'
+);
+PREPARE stmt_migracao FROM @sql_migracao;
+EXECUTE stmt_migracao;
+DEALLOCATE PREPARE stmt_migracao;
+
+SET @fk_crianca_usuario_set_null = (
+    SELECT COUNT(*)
+    FROM information_schema.KEY_COLUMN_USAGE AS k
+    INNER JOIN information_schema.REFERENTIAL_CONSTRAINTS AS r
+        ON r.CONSTRAINT_SCHEMA = k.CONSTRAINT_SCHEMA
+       AND r.CONSTRAINT_NAME = k.CONSTRAINT_NAME
+    WHERE k.TABLE_SCHEMA = DATABASE()
+      AND k.TABLE_NAME = 'criancas_desaparecidas'
+      AND k.COLUMN_NAME = 'usuario_id'
+      AND k.REFERENCED_TABLE_NAME = 'usuarios'
+      AND k.REFERENCED_COLUMN_NAME = 'id'
+      AND r.DELETE_RULE = 'SET NULL'
+);
+SET @sql_migracao = IF(
+    @fk_crianca_usuario_set_null = 0,
+    'ALTER TABLE criancas_desaparecidas ADD CONSTRAINT fk_criancas_usuario FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON UPDATE CASCADE ON DELETE SET NULL',
     'SELECT 1'
 );
 PREPARE stmt_migracao FROM @sql_migracao;

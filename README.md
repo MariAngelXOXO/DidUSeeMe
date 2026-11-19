@@ -31,9 +31,15 @@ Mais informação, mais conscientização e mais possibilidades de ajudar, junto
 
 O arquivo `backend/.env` contém configurações locais e não deve ser enviado ao Git. A conexão não usa mais usuário ou senha padrão: `DB_HOST`, `DB_USER`, `DB_PASSWORD` e `DB_NAME` devem estar definidos. A senha pode ficar vazia se o MySQL local estiver configurado assim. `JWT_SECRET` precisa ter pelo menos 32 caracteres.
 
-O script pode ser executado novamente sem apagar os dados. `CREATE TABLE IF NOT EXISTS` não recria nem corrige automaticamente tabelas já existentes; o script inclui migrações para `perfil_id` e `ativo` em `usuarios`, e para status, fonte, autorização, verificação da fonte e `usuario_id` em `criancas_desaparecidas`. Casos antigos são enviados para revisão, não publicados automaticamente; os que não têm dono permanecem sem vínculo e não são apagados. Não use `DROP DATABASE` para corrigir erros sem antes fazer backup.
+O script pode ser executado novamente sem apagar os dados. `CREATE TABLE IF NOT EXISTS` não recria nem corrige automaticamente tabelas já existentes; o script inclui migrações para `perfil_id` e `ativo` em `usuarios`, e para status, fonte, autorização, verificação da fonte e `usuario_id` em `criancas_desaparecidas`. Casos antigos são enviados para revisão, não publicados automaticamente; os que não têm dono permanecem sem vínculo e não são apagados. A relação do caso com o proprietário usa `ON DELETE SET NULL`, preservando casos e histórico se uma conta for removida. Não use `DROP DATABASE` para corrigir erros sem antes fazer backup.
 
 Cada usuário pode excluir os próprios casos; somente `admin` pode excluir qualquer caso. Para atribuir um perfil de equipe, altere `usuarios.perfil_id` para o ID correto em `perfis`; faça isso apenas para contas autorizadas.
+
+## Cadastro, login e erros da API
+
+- `POST /api/auth/registrar` exige nome (2 a 150 caracteres), e-mail válido e senha de 8 a 72 bytes. E-mails são normalizados para minúsculas; e-mail já cadastrado retorna HTTP `409`.
+- `POST /api/auth/login` valida e-mail e senha e retorna um token JWT com validade de 8 horas. Contas desativadas não podem entrar nem usar um token emitido anteriormente.
+- As respostas de erro da API usam JSON. JSON malformado retorna HTTP `400`, corpos acima de 1 MB retornam `413` e caminhos inexistentes da API retornam `404`.
 
 ## API: excluir um caso
 
@@ -53,10 +59,14 @@ Uma exclusão bem-sucedida responde com HTTP `200`. Um ID inválido responde com
 - `GET /api/criancas`: lista somente casos publicados e campos próprios para exibição pública.
 - `GET /api/criancas/minhas`: lista os casos do usuário autenticado.
 - `GET /api/criancas/minhas/:id`: retorna um dos próprios casos para edição.
+- `GET /api/criancas/:id/historico`: equipe autorizada consulta transições, responsável, data e justificativas do caso.
 - `PUT /api/criancas/:id`: atualiza o caso completo, confirma fonte/autorização novamente e devolve o caso a `pending_review`.
 - `DELETE /api/criancas/:id`: usuário exclui somente caso próprio; administrador pode excluir qualquer caso.
+- `POST /api/criancas/:id/arquivar`: moderador ou administrador retira um caso publicado da lista pública, informando `{ "observacao": "motivo do arquivamento" }`. A transição `published` → `archived`, o responsável e a justificativa ficam registrados em `historico_status_casos`.
 
 Usuários podem editar os próprios casos pendentes ou reprovados. Moderadores podem editar casos antes da publicação; administradores também podem editar os publicados. Qualquer edição exige nova aprovação e publicação. A API confere autenticação, perfil, propriedade, status e validação dos dados; esconder botões no frontend não concede nem substitui permissões.
+
+Casos publicados ou arquivados não podem ser apagados por `DELETE`, para preservar o histórico. Arquivar é uma ação terminal e auditável: o caso deixa de aparecer publicamente, mas seus dados e eventos permanecem no banco. O nome do responsável é guardado como cópia no evento, mesmo se a conta for removida. A equipe pode consultar o histórico pela rota acima ou pelo botão da fila de moderação. Casos não publicados ainda podem ser excluídos conforme as permissões de propriedade já descritas.
 
 ## Revisão, aprovação e publicação
 
@@ -66,6 +76,7 @@ Novos casos são criados com status `pending_review` e não aparecem na listagem
 - `moderador` inicia a revisão (`POST /api/criancas/:id/revisar`) e pode reprovar com motivo (`POST /api/criancas/:id/reprovar`, com `{ "observacao": "motivo" }`).
 - `aprovador` aprova casos em revisão (`POST /api/criancas/:id/aprovar`) e pode reprová-los (`POST /api/criancas/:id/reprovar`).
 - `publicador` publica casos aprovados (`POST /api/criancas/:id/publicar`); apenas então aparecem em `GET /api/criancas`.
+- `moderador` ou `admin` pode arquivar casos publicados com justificativa (`POST /api/criancas/:id/arquivar`); a ação é registrada no histórico e o caso deixa de aparecer em `GET /api/criancas`.
 - `admin` pode executar todas as etapas. Os perfis de equipe podem consultar `GET /api/criancas/revisao`; a página `frontend/moderacao.html` oferece uma interface para a fila.
 - `moderador` ou `admin` pode registrar ou corrigir a fonte verificada com `PUT /api/criancas/:id/fonte`, enviando `fonte_tipo`, `fonte_referencia` e `dados_autorizados: true`. A API registra quem verificou e quando; sem esse registro o caso não pode ser aprovado. Isso permite revisar casos antigos migrados sem fonte. Se o caso já estava aprovado, a alteração o devolve para revisão.
 - As transições são registradas em `historico_status_casos`; ações fora de ordem retornam HTTP `409`.

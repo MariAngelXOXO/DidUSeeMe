@@ -4,8 +4,16 @@ const controllers = require('../controllers/controllers');
 const middlewares = require('../middlewares/middlewares');
 
 // Rotas de Autenticação
-router.post('/auth/registrar', controllers.registrarUsuario);
-router.post('/auth/login', controllers.loginUsuario);
+router.post(
+  '/auth/registrar',
+  middlewares.validarRegistroUsuario,
+  controllers.registrarUsuario
+);
+router.post(
+  '/auth/login',
+  middlewares.validarLoginUsuario,
+  controllers.loginUsuario
+);
 
 // Rotas de Casos
 router.get('/criancas', controllers.listarCriancas);
@@ -27,6 +35,13 @@ router.get(
   middlewares.verificarToken,
   middlewares.autorizarPerfis('admin', 'moderador', 'aprovador', 'publicador'),
   controllers.listarFilaRevisao
+);
+router.get(
+  '/criancas/:id/historico',
+  middlewares.verificarToken,
+  middlewares.autorizarPerfis('admin', 'moderador', 'aprovador', 'publicador'),
+  middlewares.validarIdCrianca,
+  controllers.listarHistoricoCrianca
 );
 // Rota protegida (requer token JWT)
 router.post(
@@ -79,6 +94,14 @@ router.post(
   middlewares.autorizarPerfis('admin', 'publicador'),
   middlewares.validarIdCrianca,
   controllers.publicarCrianca
+);
+router.post(
+  '/criancas/:id/arquivar',
+  middlewares.verificarToken,
+  middlewares.autorizarPerfis('admin', 'moderador'),
+  middlewares.validarIdCrianca,
+  middlewares.validarMotivoArquivamento,
+  controllers.arquivarCrianca
 );
 router.delete(
   '/criancas/:id',

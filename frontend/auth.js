@@ -14,20 +14,27 @@ switchModeLink.addEventListener('click', (e) => {
     authTitle.textContent = 'Criar uma Conta';
     authBtn.textContent = 'Cadastrar';
     nameFieldGroup.classList.remove('hidden');
+    document.getElementById('nome').required = true;
     switchModeLink.textContent = 'Já tem uma conta? Entre';
   } else {
     authTitle.textContent = 'Entrar na Conta';
     authBtn.textContent = 'Entrar';
     nameFieldGroup.classList.add('hidden');
+    document.getElementById('nome').required = false;
     switchModeLink.textContent = 'Cadastre-se';
   }
 });
 
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
-  const email = document.getElementById('email').value;
+  const email = document.getElementById('email').value.trim();
   const senha = document.getElementById('senha').value;
-  const nome = document.getElementById('nome').value;
+  const nome = document.getElementById('nome').value.trim();
+
+  if (isRegisterMode && (senha.length < 8 || new TextEncoder().encode(senha).length > 72)) {
+    alert('A senha deve ter pelo menos 8 caracteres e no máximo 72 bytes.');
+    return;
+  }
 
   const endpoint = isRegisterMode ? `${API_URL}/registrar` : `${API_URL}/login`;
   const payload = isRegisterMode ? { nome, email, senha } : { email, senha };
@@ -39,7 +46,14 @@ form.addEventListener('submit', async (e) => {
       body: JSON.stringify(payload)
     });
 
-    const data = await response.json();
+    let data;
+    try {
+      data = await response.json();
+    } catch (error) {
+      console.error('Resposta inválida do servidor:', error);
+      alert('O servidor retornou uma resposta inválida.');
+      return;
+    }
 
     if (!response.ok) {
       alert(data.erro || 'Ocorreu um erro.');
